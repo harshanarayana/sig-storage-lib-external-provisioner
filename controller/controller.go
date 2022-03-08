@@ -173,6 +173,8 @@ type ProvisionController struct {
 	claimsInProgress sync.Map
 
 	volumeStore VolumeStore
+
+	filterFunction func(obj *v1.PersistentVolumeClaim) bool
 }
 
 const (
@@ -209,6 +211,16 @@ const (
 )
 
 var errRuntime = fmt.Errorf("cannot call option functions after controller has Run")
+
+func FilterFunction(f func(obj *v1.PersistentVolumeClaim) bool) func(*ProvisionController) error {
+	return func(c *ProvisionController) error {
+		if !c.HasRun() {
+			return errRuntime
+		}
+		c.filterFunction = f
+		return nil
+	}
+}
 
 // ResyncPeriod is how often the controller relists PVCs, PVs, & storage
 // classes. OnUpdate will be called even if nothing has changed, meaning failed
@@ -1185,6 +1197,10 @@ func (ctrl *ProvisionController) shouldProvision(ctx context.Context, claim *v1.
 				// annSelectedNode is set, but provisioner may remove
 				// annSelectedNode to notify scheduler to reschedule again.
 				if selectedNode, ok := claim.Annotations[annSelectedNode]; ok && selectedNode != "" {
+					if ctrl.filterFunction != nil && !ctrl.filterFunction(claim) {
+						klog.InfoS("Skipping provisioning of the claim as suggested by the filter function", "name", claim.GetName(), "annotations", claim.GetAnnotations())
+						return false, nil
+					}
 					return true, nil
 				}
 				return false, nil
