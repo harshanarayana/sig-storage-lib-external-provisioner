@@ -212,9 +212,11 @@ const (
 
 var errRuntime = fmt.Errorf("cannot call option functions after controller has Run")
 
+// FilterFunction is used to decide if a specific PVC needs to be processed by the controller in question.
+// This is done in order to make sure the controllers can be run on node local basis if required
 func FilterFunction(f func(obj *v1.PersistentVolumeClaim) bool) func(*ProvisionController) error {
 	return func(c *ProvisionController) error {
-		if !c.HasRun() {
+		if c.HasRun() {
 			return errRuntime
 		}
 		c.filterFunction = f
