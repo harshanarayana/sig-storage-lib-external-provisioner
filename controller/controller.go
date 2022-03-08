@@ -175,6 +175,8 @@ type ProvisionController struct {
 	volumeStore VolumeStore
 
 	filterFunction func(obj *v1.PersistentVolumeClaim) bool
+
+	deleteFilterFunction func(obj *v1.PersistentVolume) bool
 }
 
 const (
@@ -220,6 +222,16 @@ func FilterFunction(f func(obj *v1.PersistentVolumeClaim) bool) func(*ProvisionC
 			return errRuntime
 		}
 		c.filterFunction = f
+		return nil
+	}
+}
+
+func FilterDeleteFunction(f func(obj *v1.PersistentVolume) bool) func(*ProvisionController) error {
+	return func(c *ProvisionController) error {
+		if c.HasRun() {
+			return errRuntime
+		}
+		c.deleteFilterFunction = f
 		return nil
 	}
 }
@@ -1249,6 +1261,10 @@ func (ctrl *ProvisionController) shouldDelete(ctx context.Context, volume *v1.Pe
 	ann := volume.Annotations[annDynamicallyProvisioned]
 	migratedTo := volume.Annotations[annMigratedTo]
 	if ann != ctrl.provisionerName && migratedTo != ctrl.provisionerName {
+		return false
+	}
+
+	if ctrl.deleteFilterFunction != nil && !ctrl.deleteFilterFunction(volume) {
 		return false
 	}
 
