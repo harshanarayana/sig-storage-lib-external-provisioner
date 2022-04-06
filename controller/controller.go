@@ -1624,7 +1624,7 @@ func getInClusterNamespace() string {
 // getProvisionedVolumeNameForClaim returns PV.Name for the provisioned volume.
 // The name must be unique.
 func (ctrl *ProvisionController) getProvisionedVolumeNameForClaim(claim *v1.PersistentVolumeClaim) string {
-	return "pvc-" + string(claim.UID)
+	return fmt.Sprintf("%s-%s", claim.GetNamespace(), claim.GetName())
 }
 
 // getStorageClass retrives storage class object by name.
